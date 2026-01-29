@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Vehicle Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- PapaParse for CSV -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Data Labels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+
+<div class="container">
+    <h2>CSV Vehicle Version Analysis</h2>
+
+    <input type="file" id="csvFile" accept=".csv">
+    <button onclick="processCSV()">Analyze CSV</button>
+
+    <canvas id="pieChart"></canvas>
+
+    <div class="actions">
+        <button onclick="downloadCSV()">Download Cleaned CSV</button>
+        <button onclick="downloadChart()">Download Pie Chart</button>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
