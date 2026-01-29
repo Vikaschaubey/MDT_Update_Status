@@ -2,7 +2,7 @@ let cleanedData = [];
 let pieChartInstance = null;
 let barChartInstance = null;
 
-// Columns to remove
+/* ================= COLUMNS TO REMOVE ================= */
 const COLUMNS_TO_REMOVE = [
     "driver_id","driver_name","driver_contact","entity_id","toll__plaza_code",
     "address","state","city","ro_id","record_id","available","fcm_token",
@@ -20,6 +20,7 @@ const COLUMNS_TO_REMOVE = [
     "device_updatedtime","incident_manager_id"
 ];
 
+/* ================= PROCESS CSV ================= */
 function processCSV() {
     const fileInput = document.getElementById("csvFile");
     if (!fileInput.files.length) {
@@ -33,32 +34,66 @@ function processCSV() {
         complete: function (results) {
 
             let data = results.data;
+            if (!data || !data.length) {
+                alert("CSV is empty or invalid");
+                return;
+            }
 
+            /* ===== Detect vehicle column safely ===== */
             let vehicleCol = null;
-            if ("vehicle_type" in data[0]) vehicleCol = "vehicle_type";
-            else if ("vehicale_type" in data[0]) vehicleCol = "vehicale_type";
+            const firstRow = data.find(r => r && typeof r === "object");
+
+            if (!firstRow) {
+                alert("Invalid CSV structure");
+                return;
+            }
+
+            if ("vehicle_type" in firstRow) vehicleCol = "vehicle_type";
+            else if ("vehicale_type" in firstRow) vehicleCol = "vehicale_type";
 
             if (!vehicleCol) {
                 alert("Vehicle type column not found");
                 return;
             }
 
+            /* ===== Clean + Filter Data (SAFE MODE) ===== */
             cleanedData = data
+                .filter(row => row && typeof row === "object")
                 .map(row => {
-                    COLUMNS_TO_REMOVE.forEach(col => delete row[col]);
 
-                    row[vehicleCol] = String(row[vehicleCol] || "")
-                        .trim().toLowerCase();
+                    /* Remove unwanted columns safely */
+                    COLUMNS_TO_REMOVE.forEach(col => {
+                        if (Object.prototype.hasOwnProperty.call(row, col)) {
+                            delete row[col];
+                        }
+                    });
 
-                    if (!row.current_version) row.current_version = "0";
+                    /* Normalize vehicle type */
+                    if (row[vehicleCol]) {
+                        row[vehicleCol] = String(row[vehicleCol])
+                            .trim()
+                            .toLowerCase();
+                    }
+
+                    /* Handle current_version */
+                    if (!row.current_version || row.current_version === "") {
+                        row.current_version = "0";
+                    } else {
+                        row.current_version = String(row.current_version).trim();
+                    }
 
                     return row;
                 })
                 .filter(row =>
-                    ["ambulance", "crane", "patrol vehicle"]
-                        .includes(row[vehicleCol]) &&
+                    row[vehicleCol] &&
+                    ["ambulance", "crane", "patrol vehicle"].includes(row[vehicleCol]) &&
                     String(row.intouch_active_status).toLowerCase() === "true"
                 );
+
+            if (!cleanedData.length) {
+                alert("No valid data after filtering");
+                return;
+            }
 
             drawPieChart();
             drawStackedBarChart(vehicleCol);
@@ -77,7 +112,7 @@ function drawPieChart() {
 
     const labels = Object.keys(versionCounts);
     const values = Object.values(versionCounts);
-    const total = values.reduce((a,b)=>a+b,0);
+    const total = values.reduce((a, b) => a + b, 0);
 
     const ctx = document.getElementById("pieChart");
 
@@ -93,7 +128,7 @@ function drawPieChart() {
             plugins: {
                 datalabels: {
                     color: "#fff",
-                    font: { weight: "bold" },
+                    font: { weight: "bold", size: 12 },
                     formatter: (value, ctx) => {
                         const pct = ((value / total) * 100).toFixed(1);
                         return `${ctx.chart.data.labels[ctx.dataIndex]}\n${value} (${pct}%)`;
@@ -149,21 +184,14 @@ function drawStackedBarChart(vehicleCol) {
             plugins: {
                 datalabels: {
                     color: "#fff",
-                    font: {
-                        weight: "bold",
-                        size: 11
-                    },
-                    formatter: (value) => {
-                        return value > 0 ? value : "";
-                    },
+                    font: { weight: "bold", size: 11 },
+                    formatter: value => value > 0 ? value : "",
                     anchor: "center",
                     align: "center"
                 },
                 tooltip: {
                     callbacks: {
-                        label: function (context) {
-                            return `${context.dataset.label}: ${context.raw}`;
-                        }
+                        label: ctx => `${ctx.dataset.label}: ${ctx.raw}`
                     }
                 }
             }
@@ -172,12 +200,10 @@ function drawStackedBarChart(vehicleCol) {
     });
 }
 
-
-/* ================= DOWNLOADS ================= */
 /* ================= DOWNLOAD CSV ================= */
 function downloadCSV() {
     if (!cleanedData.length) {
-        alert("No data available");
+        alert("No data to download");
         return;
     }
 
