@@ -20,6 +20,19 @@ const COLUMNS_TO_REMOVE = [
     "device_updatedtime","incident_manager_id"
 ];
 
+/* ================= WHITE BACKGROUND PLUGIN ================= */
+const whiteBackgroundPlugin = {
+    id: "whiteBackground",
+    beforeDraw: (chart) => {
+        const ctx = chart.canvas.getContext("2d");
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-over";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, chart.width, chart.height);
+        ctx.restore();
+    }
+};
+
 /* ================= PROCESS CSV ================= */
 function processCSV() {
     const fileInput = document.getElementById("csvFile");
@@ -39,14 +52,8 @@ function processCSV() {
                 return;
             }
 
-            /* ===== Detect vehicle column safely ===== */
             let vehicleCol = null;
             const firstRow = data.find(r => r && typeof r === "object");
-
-            if (!firstRow) {
-                alert("Invalid CSV structure");
-                return;
-            }
 
             if ("vehicle_type" in firstRow) vehicleCol = "vehicle_type";
             else if ("vehicale_type" in firstRow) vehicleCol = "vehicale_type";
@@ -56,36 +63,25 @@ function processCSV() {
                 return;
             }
 
-            /* ===== Clean + Filter Data (SAFE MODE) ===== */
             cleanedData = data
                 .filter(row => row && typeof row === "object")
                 .map(row => {
 
-                    /* Remove unwanted columns safely */
                     COLUMNS_TO_REMOVE.forEach(col => {
-                        if (Object.prototype.hasOwnProperty.call(row, col)) {
-                            delete row[col];
-                        }
+                        if (row.hasOwnProperty(col)) delete row[col];
                     });
 
-                    /* Normalize vehicle type */
                     if (row[vehicleCol]) {
-                        row[vehicleCol] = String(row[vehicleCol])
-                            .trim()
-                            .toLowerCase();
+                        row[vehicleCol] = row[vehicleCol].toString().trim().toLowerCase();
                     }
 
-                    /* Handle current_version */
-                    if (!row.current_version || row.current_version === "") {
-                        row.current_version = "0";
-                    } else {
-                        row.current_version = String(row.current_version).trim();
-                    }
+                    row.current_version = row.current_version
+                        ? row.current_version.toString().trim()
+                        : "0";
 
                     return row;
                 })
                 .filter(row =>
-                    row[vehicleCol] &&
                     ["ambulance", "crane", "patrol vehicle"].includes(row[vehicleCol]) &&
                     String(row.intouch_active_status).toLowerCase() === "true"
                 );
@@ -103,8 +99,8 @@ function processCSV() {
 
 /* ================= PIE CHART ================= */
 function drawPieChart() {
-    const versionCounts = {};
 
+    const versionCounts = {};
     cleanedData.forEach(row => {
         versionCounts[row.current_version] =
             (versionCounts[row.current_version] || 0) + 1;
@@ -114,30 +110,28 @@ function drawPieChart() {
     const values = Object.values(versionCounts);
     const total = values.reduce((a, b) => a + b, 0);
 
-    const ctx = document.getElementById("pieChart");
-
     if (pieChartInstance) pieChartInstance.destroy();
 
-    pieChartInstance = new Chart(ctx, {
-        type: "pie",
-        data: {
-            labels: labels,
-            datasets: [{ data: values }]
-        },
-        options: {
-            plugins: {
-                datalabels: {
-                    color: "#fff",
-                    font: { weight: "bold", size: 12 },
-                    formatter: (value, ctx) => {
-                        const pct = ((value / total) * 100).toFixed(1);
-                        return `${ctx.chart.data.labels[ctx.dataIndex]}\n${value} (${pct}%)`;
+    pieChartInstance = new Chart(
+        document.getElementById("pieChart"),
+        {
+            type: "pie",
+            data: { labels, datasets: [{ data: values }] },
+            plugins: [ChartDataLabels],
+            options: {
+                plugins: {
+                    datalabels: {
+                        color: "#fff",
+                        font: { weight: "bold", size: 12 },
+                        formatter: (value, ctx) => {
+                            const pct = ((value / total) * 100).toFixed(1);
+                            return `${ctx.chart.data.labels[ctx.dataIndex]}\n${value} (${pct}%)`;
+                        }
                     }
                 }
             }
-        },
-        plugins: [ChartDataLabels]
-    });
+        }
+    );
 }
 
 /* ================= STACKED BAR CHART ================= */
@@ -147,65 +141,52 @@ function drawStackedBarChart(vehicleCol) {
     const versions = ["0", "2.0.8", "2.0.9"];
 
     const counts = {};
-    vehicles.forEach(v => {
-        counts[v] = { "0": 0, "2.0.8": 0, "2.0.9": 0 };
-    });
+    vehicles.forEach(v => counts[v] = { "0": 0, "2.0.8": 0, "2.0.9": 0 });
 
     cleanedData.forEach(row => {
-        const vType = row[vehicleCol];
-        const ver = row.current_version;
-        if (counts[vType] && counts[vType][ver] !== undefined) {
-            counts[vType][ver]++;
+        if (counts[row[vehicleCol]] && counts[row[vehicleCol]][row.current_version] !== undefined) {
+            counts[row[vehicleCol]][row.current_version]++;
         }
     });
 
-    const datasets = versions.map(version => ({
-        label: version,
-        data: vehicles.map(v => counts[v][version]),
+    const datasets = versions.map(ver => ({
+        label: ver,
+        data: vehicles.map(v => counts[v][ver]),
         stack: "versions"
     }));
 
-    const ctx = document.getElementById("barChart");
-
     if (barChartInstance) barChartInstance.destroy();
 
-    barChartInstance = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: vehicles.map(v => v.toUpperCase()),
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { stacked: true },
-                y: { stacked: true, beginAtZero: true }
+    barChartInstance = new Chart(
+        document.getElementById("barChart"),
+        {
+            type: "bar",
+            data: {
+                labels: vehicles.map(v => v.toUpperCase()),
+                datasets
             },
-            plugins: {
-                datalabels: {
-                    color: "#fff",
-                    font: { weight: "bold", size: 11 },
-                    formatter: value => value > 0 ? value : "",
-                    anchor: "center",
-                    align: "center"
+            plugins: [ChartDataLabels, whiteBackgroundPlugin],
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
                 },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => `${ctx.dataset.label}: ${ctx.raw}`
+                plugins: {
+                    datalabels: {
+                        color: "#fff",
+                        font: { weight: "bold", size: 11 },
+                        formatter: v => v > 0 ? v : ""
                     }
                 }
             }
-        },
-        plugins: [ChartDataLabels]
-    });
+        }
+    );
 }
 
 /* ================= DOWNLOAD CSV ================= */
 function downloadCSV() {
-    if (!cleanedData.length) {
-        alert("No data to download");
-        return;
-    }
+    if (!cleanedData.length) return alert("No data to download");
 
     const csv = Papa.unparse(cleanedData);
     const blob = new Blob([csv], { type: "text/csv" });
@@ -218,26 +199,20 @@ function downloadCSV() {
 
 /* ================= DOWNLOAD PIE CHART ================= */
 function downloadPieChart() {
-    if (!pieChartInstance) {
-        alert("Pie chart not available");
-        return;
-    }
+    if (!pieChartInstance) return alert("Pie chart not available");
 
-    const link = document.createElement("a");
-    link.download = "current_version_pie_chart.png";
-    link.href = document.getElementById("pieChart").toDataURL("image/png");
-    link.click();
+    const a = document.createElement("a");
+    a.download = "pie_chart.png";
+    a.href = document.getElementById("pieChart").toDataURL("image/png");
+    a.click();
 }
 
-/* ================= DOWNLOAD BAR CHART ================= */
+/* ================= DOWNLOAD BAR CHART (WHITE BG) ================= */
 function downloadBarChart() {
-    if (!barChartInstance) {
-        alert("Bar chart not available");
-        return;
-    }
+    if (!barChartInstance) return alert("Bar chart not available");
 
-    const link = document.createElement("a");
-    link.download = "vehicle_version_stacked_bar_chart.png";
-    link.href = document.getElementById("barChart").toDataURL("image/png");
-    link.click();
+    const a = document.createElement("a");
+    a.download = "stacked_bar_chart.png";
+    a.href = document.getElementById("barChart").toDataURL("image/png");
+    a.click();
 }
