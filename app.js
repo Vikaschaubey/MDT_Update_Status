@@ -98,16 +98,35 @@ function processCSV() {
 }
 
 /* ================= PIE CHART ================= */
+/* ================= PIE CHART ================= */
 function drawPieChart() {
 
-    const versionCounts = {};
+    let updatedCount = 0;
+    let notUpdatedCount = 0;
+
     cleanedData.forEach(row => {
-        versionCounts[row.current_version] =
-            (versionCounts[row.current_version] || 0) + 1;
+
+        const version = row.current_version
+            ? row.current_version.toString().trim()
+            : "0";
+
+        if (version === "2.1.3") {
+            updatedCount++;
+        } else {
+            notUpdatedCount++;
+        }
     });
 
-    const labels = Object.keys(versionCounts);
-    const values = Object.values(versionCounts);
+    const labels = [
+        "Updated (2.1.3)",
+        "Not Updated"
+    ];
+
+    const values = [
+        updatedCount,
+        notUpdatedCount
+    ];
+
     const total = values.reduce((a, b) => a + b, 0);
 
     if (pieChartInstance) pieChartInstance.destroy();
@@ -116,16 +135,35 @@ function drawPieChart() {
         document.getElementById("pieChart"),
         {
             type: "pie",
-            data: { labels, datasets: [{ data: values }] },
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: [
+                        "#28a745",
+                        "#dc3545"
+                    ]
+                }]
+            },
             plugins: [ChartDataLabels],
             options: {
+                responsive: true,
                 plugins: {
+                    legend: {
+                        position: "bottom"
+                    },
                     datalabels: {
                         color: "#fff",
-                        font: { weight: "bold", size: 12 },
+                        font: {
+                            weight: "bold",
+                            size: 13
+                        },
                         formatter: (value, ctx) => {
-                            const pct = ((value / total) * 100).toFixed(1);
-                            return `${ctx.chart.data.labels[ctx.dataIndex]}\n${value} (${pct}%)`;
+
+                            const percentage =
+                                ((value / total) * 100).toFixed(1);
+
+                            return `${value}\n(${percentage}%)`;
                         }
                     }
                 }
@@ -134,56 +172,106 @@ function drawPieChart() {
     );
 }
 
+
 /* ================= STACKED BAR CHART ================= */
 function drawStackedBarChart(vehicleCol) {
 
-    const vehicles = ["ambulance", "crane", "patrol vehicle"];
-    const versions = ["0", "2.0.8", "2.0.9"];
+    const vehicles = [
+        "ambulance",
+        "crane",
+        "patrol vehicle"
+    ];
 
-    const counts = {};
-    vehicles.forEach(v => counts[v] = { "0": 0, "2.0.8": 0, "2.0.9": 0 });
+    const vehicleLabels = [
+        "AMBULANCE",
+        "CRANE",
+        "RPV"
+    ];
 
-    cleanedData.forEach(row => {
-        if (counts[row[vehicleCol]] && counts[row[vehicleCol]][row.current_version] !== undefined) {
-            counts[row[vehicleCol]][row.current_version]++;
-        }
+    const updatedData = [];
+    const notUpdatedData = [];
+
+    vehicles.forEach(vehicle => {
+
+        let updated = 0;
+        let notUpdated = 0;
+
+        cleanedData.forEach(row => {
+
+            const version = row.current_version
+                ? row.current_version.toString().trim()
+                : "0";
+
+            if (row[vehicleCol] === vehicle) {
+
+                if (version === "2.1.3") {
+                    updated++;
+                } else {
+                    notUpdated++;
+                }
+            }
+        });
+
+        updatedData.push(updated);
+        notUpdatedData.push(notUpdated);
     });
 
-    const datasets = versions.map(ver => ({
-        label: ver,
-        data: vehicles.map(v => counts[v][ver]),
-        stack: "versions"
-    }));
+    const datasets = [
+        {
+            label: "Updated (2.1.3)",
+            data: updatedData,
+            backgroundColor: "#28a745",
+            stack: "status"
+        },
+        {
+            label: "Not Updated",
+            data: notUpdatedData,
+            backgroundColor: "#dc3545",
+            stack: "status"
+        }
+    ];
 
-    if (barChartInstance) barChartInstance.destroy();
+    if (barChartInstance) {
+        barChartInstance.destroy();
+    }
 
     barChartInstance = new Chart(
         document.getElementById("barChart"),
         {
             type: "bar",
             data: {
-                labels: vehicles.map(v => v.toUpperCase()),
-                datasets
+                labels: vehicleLabels,
+                datasets: datasets
             },
             plugins: [ChartDataLabels, whiteBackgroundPlugin],
             options: {
                 responsive: true,
                 scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true }
+                    x: {
+                        stacked: true
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
                 },
                 plugins: {
+                    legend: {
+                        position: "bottom"
+                    },
                     datalabels: {
                         color: "#fff",
-                        font: { weight: "bold", size: 11 },
-                        formatter: v => v > 0 ? v : ""
+                        font: {
+                            weight: "bold",
+                            size: 12
+                        },
+                        formatter: value => value > 0 ? value : ""
                     }
                 }
             }
         }
     );
 }
-
 /* ================= DOWNLOAD CSV ================= */
 function downloadCSV() {
     if (!cleanedData.length) return alert("No data to download");
