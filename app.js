@@ -140,8 +140,8 @@ function drawPieChart() {
                 datasets: [{
                     data: values,
                     backgroundColor: [
-                        "#28a745",
-                        "#dc3545"
+                        "#2596be",
+                        "#2596be"
                     ]
                 }]
             },
@@ -220,13 +220,13 @@ function drawStackedBarChart(vehicleCol) {
         {
             label: "Updated (2.1.3)",
             data: updatedData,
-            backgroundColor: "#28a745",
+            backgroundColor: "#2596be",
             stack: "status"
         },
         {
             label: "Not Updated",
             data: notUpdatedData,
-            backgroundColor: "#dc3545",
+            backgroundColor: "#2596be",
             stack: "status"
         }
     ];
