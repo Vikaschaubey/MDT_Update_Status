@@ -141,7 +141,7 @@ function drawPieChart() {
                     data: values,
                     backgroundColor: [
                         "#2596be",
-                        "#2596be"
+                        "#e28743"
                     ]
                 }]
             },
@@ -226,7 +226,7 @@ function drawStackedBarChart(vehicleCol) {
         {
             label: "Not Updated",
             data: notUpdatedData,
-            backgroundColor: "#2596be",
+            backgroundColor: "#e28743",
             stack: "status"
         }
     ];
